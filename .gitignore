@@ -1,0 +1,21 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Pipeline outputs (auto-generated at runtime)
+Gemini/
+Gemini_blind_modify/
+crops/
+render/
+batch_summary_*.json
+*_status.json
+*_valid_bpmn_rate.json
+*_ablation.json
+
+# OS
+Thumbs.db
+.DS_Store

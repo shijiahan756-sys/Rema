@@ -1,0 +1,132 @@
+{
+  "constraints": [
+    {
+      "id": "R1",
+      "evidence_required": false,
+      "text": "Two-stage presence protocol. (1) FIRST declare diagramCompleteness for start/end events based on the image: 'present', 'absent_ellipsis' (diagram visibly ends with an ellipsis / '...' / trailing dots), or 'absent_unclear'. (2) ONLY events declared 'present' may appear in elements[]. An event absent from elements[] is NOT an error when diagramCompleteness declares it absent; fabricating an event declared absent IS an error (hallucination).",
+      "applies_to": "json_only_presence_two_stage"
+    },
+    {
+      "id": "R2",
+      "evidence_required": false,
+      "text": "If the event has a specific type (Message, Timer, Error, etc.), it must be indicated via eventType or name.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R3",
+      "evidence_required": true,
+      "text": "The Message flow is represented by a dashed line, with a HOLLOW/SMALL CIRCLE marker at the source (origin) side and an OPEN arrowhead at the target side.",
+      "applies_to": "visual_only"
+    },
+    {
+      "id": "R4",
+      "evidence_required": true,
+      "text": "Association is represented by a dotted or dash-dotted line. If a directional marker exists it is an OPEN (hollow) arrowhead; if no marker exists the Association is undirected.",
+      "applies_to": "visual_only"
+    },
+    {
+      "id": "R5",
+      "evidence_required": false,
+      "text": "The branch in the parallel gateway has no conditional attributes.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R6",
+      "evidence_required": false,
+      "text": "The branch in the exclusive gateways may contain conditional attributes, but their presence is not mandatory.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R7",
+      "evidence_required": false,
+      "text": "The branches created by a parallel gateway are generally synchronized through the corresponding parallel gateways.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R8",
+      "evidence_required": false,
+      "text": "Sequence flow is used within the same Pool (possibly across Lanes) to connect activities, events, and gateways.",
+      "applies_to": "json_only_limited"
+    },
+    {
+      "id": "R9",
+      "evidence_required": false,
+      "text": "Message flow must connect different Pools for asynchronous communication. A MessageFlow connecting elements within the same Pool, including different Lanes of that Pool, is an error.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R10",
+      "evidence_required": true,
+      "text": "The starting/ending points of the message flow may be on Pool boundaries or specific element boundaries.",
+      "applies_to": "visual_only"
+    },
+    {
+      "id": "R11",
+      "evidence_required": false,
+      "text": "ObjectN keys in elements[] must be unique, start at Object1 and be gap-free sequential. Duplicates or gaps → needs_revision.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R12",
+      "evidence_required": false,
+      "text": "Connection reference consistency: if a connection element provides both sourceRef/targetRef AND incoming/outgoing arrays they must be exactly equal after unwrapping (scalar vs. single-item). Any mismatch → needs_revision. Arrays of length > 1 in endpoint references → needs_revision (multi-reference is an error).",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R13",
+      "evidence_required": false,
+      "text": "parent/contains consistency. For every Lane with parent=ObjectP, ObjectP.contains MUST include this Lane. For every entry A in Container.contains, A.parent (if present on A) must equal Container or a transitive direct container; direct children only in contains (no grandchildren) → otherwise needs_revision.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R14",
+      "evidence_required": false,
+      "text": "Required shape fields. Pool/Lane/Event/Activity/Gateway/DataObject must carry x/y/width/height integers. Missing → needs_revision.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R15",
+      "evidence_required": false,
+      "text": "Required connection fields. SequenceFlow/MessageFlow/Association must have start{x,y} and end{x,y} plus at least one endpoint reference style. Missing → needs_revision.",
+      "applies_to": "json_only"
+    },
+    {
+      "id": "R16",
+      "evidence_required": false,
+      "applies_to": "json_only_connectivity",
+      "text": "Connectivity invariant. Every Activity and Gateway must have >=1 incoming and >=1 outgoing SequenceFlow. A StartEvent must have no incoming; an EndEvent must have no outgoing. Any violation is a hard error (executed by code in topology_checks.py, not by judgement)."
+    },
+    {
+      "id": "R17",
+      "evidence_required": false,
+      "applies_to": "json_only_supporting",
+      "text": "Supporting-element anchoring invariant. Every DataObject/DataStore/TextAnnotation must be anchored by >=1 Association or appear in some activity's dataInputAssociation/dataOutputAssociation. An unanchored artifact is a hard error. Association endpoints must be (artifact, flow node); MessageFlow endpoints must be in different Pools."
+    },
+    {
+      "id": "R18",
+      "evidence_required": false,
+      "applies_to": "xml_only_di",
+      "text": "DI consistency invariant. Every shape-like element in the semantic layer must have a BPMNShape with Bounds, and every SequenceFlow/MessageFlow/Association must have a BPMNEdge with >=2 waypoints. Checked by code after generation."
+    }
+  ],
+  "synthetic_rules": {
+    "_comment": "Synthetic error entries injected by deterministic code (not by the reviewer). Downstream Modify Agent must treat them as ordinary errors.",
+    "constraints": [
+      {
+        "id": "RC1",
+        "text": "Inventory discrepancy: the surveyor counted more instances of this class than were extracted. Re-scan the region or add the missing element.",
+        "source": "inventory.py"
+      },
+      {
+        "id": "RC2",
+        "text": "Connectivity defect: a node has a missing incoming/outgoing flow. Only add a flow when the cropped evidence shows a directed line.",
+        "source": "edge_completion.py / topology_checks.py"
+      },
+      {
+        "id": "RC3",
+        "text": "Render-back difference: a shape/line visible in the original is missing (or extra) in the rendered reconstruction.",
+        "source": "render_compare.py"
+      }
+    ]
+  }
+}

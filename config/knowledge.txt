@@ -1,0 +1,174 @@
+## K1. BPMN Element Taxonomy
+
+The BPMN elements considered in this task are divided into **shape elements** and **connection elements**.
+
+### 1. Shape Elements
+
+#### Pool
+A **Pool** represents a participant in a business process.
+A Pool may contain one or more Lanes and may contain process elements such as Events, Activities, Gateways, and Data Objects.
+Output class: `Pool`.
+
+#### Lane
+A **Lane** represents a subdivision within a Pool and is used to organize process elements according to roles, departments, systems, or other responsibilities.
+A Lane belongs to exactly one Pool. The Pool containing the Lane is represented through the `parent` field pointing to the Pool's ObjectN id.
+Output class: `Lane`.
+
+#### Event
+An **Event** represents something that happens during a business process.
+Subtypes (written to the `subType` field):
+- `StartEvent`
+- `EndEvent`
+- `IntermediateCatchEvent`
+- `IntermediateThrowEvent`
+- `BoundaryEvent`
+Event definitions (prefer `eventType`; R2 also allows a specific event type to be indicated in `name`):
+- `None`
+- `Message`
+- `Timer`
+- `Error`
+- `Signal`
+- `Terminate`
+Output class: `Event`.
+
+#### Activity
+An **Activity** represents work performed within a business process.
+Activity types (written to the `activityType` field):
+- `Task`
+- `UserTask`
+- `ServiceTask`
+- `ManualTask`
+- `ScriptTask`
+- `SendTask`
+- `ReceiveTask`
+- `CallActivity`
+- `SubProcess`
+Output class: `Activity`.
+
+#### Gateway
+A **Gateway** controls the divergence or convergence of process paths.
+Gateway types (written to the `gatewayType` field):
+- `Exclusive`
+- `Parallel`
+- `Inclusive`
+- `EventBased`
+- `Complex`
+Output class: `Gateway`.
+
+#### DataObject
+A **DataObject** represents information used or produced during a process.
+If a Data Store appears, represent it with the same class and use:
+- `dataType: "DataStore"` for a Data Store
+- `dataType: "DataObject"` for an ordinary Data Object
+Output class: `DataObject`.
+
+---
+
+## K2. BPMN Connection Visuals (CORRECTED — use these, not older drafts)
+
+### SequenceFlow
+- Solid line with a filled arrowhead.
+- Connects flow nodes (Events, Activities, Gateways) within the same Pool; may cross Lanes inside the same Pool.
+- Output class: `SequenceFlow`.
+- The endpoint without the arrowhead is the **source** (`sourceRef` / `start`).
+- The endpoint with the arrowhead is the **target** (`targetRef` / `end`).
+
+### MessageFlow (CORRECTED visual)
+- Dashed line, with a HOLLOW/SMALL CIRCLE marker at the source (origin) side and an OPEN arrowhead at the target side.
+- Used only for asynchronous communication **between different Pools (participants)**.
+- Prohibited: MessageFlow must NOT be used to connect elements that reside in two different Lanes of the SAME Pool.
+- Allowed MessageFlow endpoints:
+  - Pool boundary (not the outer frame of the whole diagram)
+  - Event (especially Message start/intermediate events)
+  - Activity
+  - Other communication-capable node
+- Output class: `MessageFlow`.
+
+### Association
+- Dotted or dash-dotted line.
+- If a directional marker exists it is an OPEN (hollow) arrowhead; if no marker exists the Association is undirected.
+- Do NOT invent a direction for an Association if the diagram does not visibly carry one.
+- Commonly connects DataObjects, DataStores, TextAnnotations to process elements.
+- Output class: `Association`.
+- Use `arrow: true` only when a directed marker is clearly visible.
+
+---
+
+## K3. Connection Reference Fields (new protocol, keep legacy for compatibility)
+
+### Preferred fields
+For every connection element, write the endpoints as plain strings:
+- `sourceRef: "ObjectN"` — the element at the tail of the connection
+- `targetRef: "ObjectN"` — the element at the head of the connection
+
+### Legacy fields (read by code but must not contradict)
+- `incoming: ["ObjectN"]` — same meaning as `[sourceRef]`
+- `outgoing: ["ObjectN"]` — same meaning as `[targetRef]`
+
+Python side compatibility rule:
+- If the model returns both styles, incoming/outgoing MUST equal [sourceRef]/[targetRef] exactly; any mismatch raises a conflict error and the extraction is rejected rather than silently picking one.
+- If the model returns only incoming/outgoing, Python normalizes them into scalar sourceRef/targetRef internally while preserving the written JSON for the output file.
+- Arrays longer than 1 item in sourceRef/targetRef/incoming/outgoing are reported as multi-reference errors; do not silently select one.
+
+### Geometry consistency
+For connections:
+- `start` coordinate must lie on the boundary of the element referenced by `sourceRef`
+- `end` coordinate must lie on the boundary of the element referenced by `targetRef`
+- The arrowhead inferred from the diagram must agree with the direction written in `sourceRef → targetRef`
+
+---
+
+## K4. Coordinates, Image Size and MIME / Accuracy Policy
+
+### Coordinate system
+- Origin: top-left corner of the provided main image
+- X positive: left → right
+- Y positive: top → bottom
+- Shape elements: write `x, y` (top-left of bounding box) plus `width, height`
+- Connection elements: write `start: {x, y}` and `end: {x, y}` at the exact element boundary where the visible line terminates.
+- Units: raw pixels read from the original PNG/JPG file (not relative, not scaled).
+
+### Image size / MIME injection
+The Python caller will pass the main image width/height and the correct MIME type together with this knowledge file; you MUST use:
+- The actual pixel width/height range supplied by Python (do not guess 1024x768 or similar defaults)
+- `data:image/png;base64,...` for `.png` files, `data:image/jpeg;base64,...` for `.jpg/.jpeg` files
+
+### Accuracy policy
+- Do not claim "3 pixel tolerance" or any numeric accuracy guarantee in outputs.
+- Report coordinates as faithfully as you can read them from the image; uncertain positions should later be flagged `unverifiable` in review, not silently "corrected".
+
+---
+
+## K5. Structural Relationships
+
+### Pool → Lane containment
+- If a Lane belongs to a Pool:
+  - Lane.parent  → Pool id (scalar, mandatory)
+  - Pool.contains must list the Lane id plus any direct children. Use direct containment only.
+- Lane.contains must list only the element IDs whose entire bounding box visually lies inside that Lane (direct containment only; do not duplicate Pool.contains by listing grandchildren).
+
+### parent / contains consistency
+- `parent` is the immediate (direct) container reference; it must be the inverse of `contains`.
+- Do NOT chain parent references through intermediates that are not drawn as containers in the image.
+
+### Association vs. direction
+- Undirected Association: record sourceRef and targetRef in a stable order (e.g., alphabetical ObjectN) but leave arrow omitted/false. Do not invent a direction.
+- Directed Association: arrowhead side is targetRef.
+
+### Prohibition on inventing elements
+- Never fabricate a Pool, Lane, Event, Gateway, Activity, DataObject or flow that is not supported by visible structure in the original image, simply to "make the BPMN look more complete" or "more compliant".
+- Missing labels → empty string for name; do not invent task titles.
+
+---
+
+## K6. Output Structure Protocol (shared with review / modify / generate)
+
+The top-level JSON envelope is always:
+```
+{ "elements": [ { "Object1": {...} }, { "Object2": {...} }, ... ] }
+```
+
+- ObjectN keys start at `Object1` and are strictly sequential with no gaps.
+- Preserve visible label text in `name`. For Events, R2 also permits a specific event type to be indicated in `name`; prefer `eventType` without making it mandatory when `name` indicates the type. Do not invent business labels. Other structured attributes remain in their own fields.
+- Every connection must have at least one endpoint reference style; both styles are allowed but must agree.
+- Unknown or unclear values should be left at type-appropriate empty defaults (`""`, `[]`) rather than fabricating strings; they will be reported as `unverifiable` during review instead of guessed.

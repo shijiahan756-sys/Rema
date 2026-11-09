@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rema:elements:schema",
+  "title": "BPMN Elements Extraction Schema",
+  "description": "Protocol shared by extraction, review, modification and generation stages. Python side also performs legacy-field compatibility and conflict reporting against this document.",
+  "type": "object",
+  "required": [
+    "elements"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "minProperties": 1,
+        "maxProperties": 1,
+        "description": "Each entry uses exactly one ObjectN key, N starting from 1, sequential. No gaps, no duplicate IDs.",
+        "patternProperties": {
+          "^Object[1-9][0-9]*$": {
+            "$ref": "#/$defs/element"
+          }
+        }
+      }
+    },
+    "diagramCompleteness": {
+      "type": "object",
+      "description": "Two-stage presence protocol (rule R1). Declared BEFORE extracting elements. An event declared absent MUST NOT appear in elements[]; fabricating it is an error.",
+      "required": [
+        "startEvent",
+        "endEvent"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "startEvent": {
+          "enum": [
+            "present",
+            "absent_ellipsis",
+            "absent_unclear"
+          ]
+        },
+        "endEvent": {
+          "enum": [
+            "present",
+            "absent_ellipsis",
+            "absent_unclear"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Where/how the ellipsis or absence appears in the image."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "elementBase": {
+      "type": "object",
+      "required": [
+        "class",
+        "name"
+      ],
+      "properties": {
+        "class": {
+          "enum": [
+            "Pool",
+            "Lane",
+            "Event",
+            "Activity",
+            "Gateway",
+            "SequenceFlow",
+            "MessageFlow",
+            "Association",
+            "DataObject"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "description": "Preserve the visible label text. For Events, R2 also permits a specific event type to be indicated in name; eventType is preferred but its absence alone is not an R2 violation when name indicates the type. Do not invent business labels or unsupported event types."
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parent": {
+          "type": "string",
+          "pattern": "^Object[1-9][0-9]*$"
+        },
+        "contains": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^Object[1-9][0-9]*$"
+          }
+        },
+        "association": {
+          "type": "string",
+          "pattern": "^Object[1-9][0-9]*$"
+        },
+        "arrow": {
+          "type": "boolean",
+          "description": "For Association only: true if an arrowhead is visible, false or omitted if undirected."
+        },
+        "start": {
+          "$ref": "#/$defs/point"
+        },
+        "end": {
+          "$ref": "#/$defs/point"
+        },
+        "sourceRef": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^Object[1-9][0-9]*$"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^Object[1-9][0-9]*$"
+              }
+            }
+          ]
+        },
+        "targetRef": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^Object[1-9][0-9]*$"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^Object[1-9][0-9]*$"
+              }
+            }
+          ]
+        },
+        "incoming": {
+          "type": "array",
+          "description": "LEGACY ONLY — keep for compatibility; must match sourceRef exactly if provided; conflict raises error.",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^Object[1-9][0-9]*$"
+          }
+        },
+        "outgoing": {
+          "type": "array",
+          "description": "LEGACY ONLY — keep for compatibility; must match targetRef exactly if provided; conflict raises error.",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^Object[1-9][0-9]*$"
+          }
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "extracted",
+            "inferred",
+            "normalized"
+          ],
+          "default": "extracted",
+          "description": "Provenance: extracted=seen in image, inferred=edge completion judged from a crop, normalized=code-completed (e.g. auto end event)."
+        },
+        "documentation": {
+          "type": "string",
+          "description": "Free-text note carried into bpmn:documentation (e.g. 'source diagram ends with ellipsis')."
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "shape": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        },
+        {
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ]
+        }
+      ]
+    },
+    "connection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        },
+        {
+          "required": [
+            "start",
+            "end"
+          ]
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "sourceRef",
+                "targetRef"
+              ]
+            },
+            {
+              "required": [
+                "incoming",
+                "outgoing"
+              ]
+            }
+          ],
+          "description": "At least one connection reference style must be present; if both present, incoming === [sourceRef_scalar] and outgoing === [targetRef_scalar]."
+        }
+      ]
+    },
+    "element": {
+      "discriminator": {
+        "propertyName": "class"
+      },
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/shape"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "Pool"
+                }
+              },
+              "required": [
+                "contains"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/shape"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "Lane"
+                }
+              },
+              "required": [
+                "parent",
+                "contains"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/shape"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "Event"
+                },
+                "subType": {
+                  "enum": [
+                    "StartEvent",
+                    "EndEvent",
+                    "IntermediateCatchEvent",
+                    "IntermediateThrowEvent",
+                    "BoundaryEvent"
+                  ]
+                },
+                "eventType": {
+                  "enum": [
+                    "None",
+                    "Message",
+                    "Timer",
+                    "Error",
+                    "Signal",
+                    "Terminate"
+                  ]
+                }
+              },
+              "required": [
+                "subType"
+              ],
+              "description": "Prefer eventType for an event-specific type. R2 also accepts that type clearly indicated in name. Do not reject an event solely because eventType is absent when name already indicates the type. Do not invent an unsupported event type or business label. The reviewer checks the semantic content of name; a nonempty name alone does not prove a specific type is indicated."
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/shape"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "Activity"
+                },
+                "activityType": {
+                  "enum": [
+                    "Task",
+                    "UserTask",
+                    "ServiceTask",
+                    "ManualTask",
+                    "ScriptTask",
+                    "SendTask",
+                    "ReceiveTask",
+                    "CallActivity",
+                    "SubProcess"
+                  ]
+                }
+              },
+              "required": [
+                "activityType"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/shape"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "Gateway"
+                },
+                "gatewayType": {
+                  "enum": [
+                    "Exclusive",
+                    "Parallel",
+                    "Inclusive",
+                    "EventBased",
+                    "Complex"
+                  ]
+                }
+              },
+              "required": [
+                "gatewayType"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/shape"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "DataObject"
+                },
+                "dataType": {
+                  "enum": [
+                    "DataObject",
+                    "DataStore"
+                  ]
+                }
+              },
+              "required": [
+                "dataType"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/connection"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "SequenceFlow"
+                },
+                "condition": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/connection"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "MessageFlow"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/connection"
+            },
+            {
+              "properties": {
+                "class": {
+                  "const": "Association"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
